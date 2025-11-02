@@ -1,6 +1,5 @@
 import dotenv from 'dotenv'
 
-// Load environment variables FIRST before importing routes
 dotenv.config()
 
 import express from 'express'
@@ -12,7 +11,17 @@ import refineRouter from './routes/refine.js'
 const app = express()
 const PORT = process.env.PORT || 3001
 
-app.use(cors())
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+)
+
+app.options('*', cors())
+
 app.use(express.json())
 
 app.use('/api/scrape', scrapeRouter)

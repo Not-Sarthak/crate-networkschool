@@ -18,6 +18,7 @@ bun.lockb
 /out/
 client/.next/
 client/out/
+frontend/.next/
 
 # production
 /build
@@ -46,3 +47,7 @@ client/.env.local
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.next
+
+.DS_Store
