@@ -205,6 +205,22 @@ export function TerminalBody() {
                 </span>
               </div>
             ))}
+            <div className="mt-3 pt-3 border-t border-black/10">
+              <button
+                onClick={() => {
+                  const blob = new Blob([results.csv], { type: 'text/csv' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'tutorials-index.csv'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                className="text-black/60 hover:text-black cursor-pointer flex items-center gap-2 text-xs font-mono"
+              >
+                <Download size={12} />
+              </button>
+            </div>
           </div>
           <BlockSpacer />
           <div className="flex text-sm px-4">
