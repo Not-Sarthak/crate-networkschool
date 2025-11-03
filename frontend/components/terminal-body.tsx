@@ -21,8 +21,19 @@ export function TerminalBody() {
   const [followUpLoading, setFollowUpLoading] = useState(false)
   const [loadingSpinIndex, setLoadingSpinIndex] = useState(0)
   const [followUpSpinIndex, setFollowUpSpinIndex] = useState(0)
+  const [urlError, setUrlError] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
 
   const spinFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
+  const isValidUrl = (urlString: string) => {
+    try {
+      const url = new URL(urlString)
+      return url.protocol === 'http:' || url.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
 
   useEffect(() => {
     if (!loading) return
@@ -40,9 +51,17 @@ export function TerminalBody() {
     return () => clearInterval(spinId)
   }, [followUpLoading, spinFrames.length])
 
-  const handleSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'Enter' || !input.trim() || loading) return
+  const submitUrl = async () => {
+    if (!input.trim() || loading) return
 
+    if (!isValidUrl(input.trim())) {
+      setUrlError(true)
+      setTimeout(() => setUrlError(false), 3000)
+      return
+    }
+
+    setUrlError(false)
+    setApiError(null)
     setSubmittedUrl(input)
     setSubmitted(true)
     setLoading(true)
@@ -54,7 +73,10 @@ export function TerminalBody() {
         body: JSON.stringify({ url: input }),
       })
 
-      if (!scrapeResponse.ok) throw new Error('Failed to scrape')
+      if (!scrapeResponse.ok) {
+        const errorData = await scrapeResponse.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to scrape documentation. Please check the URL and try again.')
+      }
 
       const scrapeData = await scrapeResponse.json()
 
@@ -64,15 +86,25 @@ export function TerminalBody() {
         body: JSON.stringify({ pages: scrapeData.pages }),
       })
 
-      if (!generateResponse.ok) throw new Error('Failed to generate')
+      if (!generateResponse.ok) {
+        const errorData = await generateResponse.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to generate tutorials. Please try again.')
+      }
 
       const data = await generateResponse.json()
       setResults(data)
       setLoading(false)
     } catch (err) {
       console.error(err)
+      setApiError(err instanceof Error ? err.message : 'An unexpected error occurred')
       setLoading(false)
+      setSubmitted(false)
     }
+  }
+
+  const handleSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    await submitUrl()
   }
 
   const copyToClipboard = () => {
@@ -109,26 +141,6 @@ export function TerminalBody() {
     }
   }
 
-  const downloadAll = () => {
-    if (!results) return
-    results.tutorials.forEach((tutorial: any) => {
-      const blob = new Blob([tutorial.content], { type: 'text/plain' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = tutorial.filename
-      a.click()
-      URL.revokeObjectURL(url)
-    })
-    const csvBlob = new Blob([results.csv], { type: 'text/csv' })
-    const csvUrl = URL.createObjectURL(csvBlob)
-    const csvLink = document.createElement('a')
-    csvLink.href = csvUrl
-    csvLink.download = 'tutorial-index.csv'
-    csvLink.click()
-    URL.revokeObjectURL(csvUrl)
-  }
-
   return (
     <div className="terminal-grid-bg py-4 flex flex-col items-stretch">
       <BlockSpacer />
@@ -136,21 +148,42 @@ export function TerminalBody() {
       <BlockSpacer />
       <Intro />
       {!submitted && (
-        <div className="flex text-sm px-4">
-          <div className='underline'>
-          <span className="text-black/40 mr-2">{`➜`}</span>
-          <span className="text-black">~/docs</span>
-          <span className="ml-2 text-black">$</span>
+        <>
+          <div className="flex text-sm px-4 items-center gap-2">
+            <div className='underline'>
+            <span className="text-black/40 mr-2">{`➜`}</span>
+            <span className="text-black">~/docs</span>
+            <span className="ml-2 text-black">$</span>
+            </div>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value)
+                if (apiError) setApiError(null)
+              }}
+              onKeyDown={handleSubmit}
+              placeholder="https://docs.example.com"
+              className="ml-2 underline bg-transparent outline-none text-black/60 placeholder:text-black/40 flex-1"
+            />
+            <button
+              onClick={submitUrl}
+              disabled={!input.trim() || loading}
+              className="px-3 py-1 bg-black/80 hover:bg-black text-white/90 rounded text-xs font-mono disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ↵ Send
+            </button>
           </div>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleSubmit}
-            placeholder="https://docs.example.com"
-            className="ml-2 underline bg-transparent outline-none text-black/60 placeholder:text-black/40 flex-1"
-          />
-        </div>
+          <div className="text-xs px-4 mt-2">
+            {urlError ? (
+              <span className="text-red-600/80 ml-6">⚠ Please enter a valid URL (must start with http:// or https://)</span>
+            ) : apiError ? (
+              <span className="text-red-600/80 ml-6">⚠ {apiError}</span>
+            ) : (
+              <span className="text-black/40 italic">enter a documentation url here</span>
+            )}
+          </div>
+        </>
       )}
       {submitted && loading && (
         <>
